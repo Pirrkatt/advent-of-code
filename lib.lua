@@ -1,3 +1,21 @@
+function GetInput(demo)
+    local info = debug.getinfo(2, "S")
+    local path = info.source:match("Advent of Code\\(.*)part")
+    path = demo == "demo" and (path .. "demo-input.txt") or (path .. "input.txt")
+
+    local file = io.open(path, "r")
+    if not file then return nil end
+
+	local lines = {}
+    for line in file:lines() do
+		table.insert(lines, line)
+	end
+
+    file:close()
+    return lines
+end
+
+-- Keep function for backward compatibility
 function ReadFile(demo)
     local info = debug.getinfo(2, "S")
     local path = info.source:match("Advent of Code\\(.*)part")
@@ -11,6 +29,7 @@ function ReadFile(demo)
     return content
 end
 
+-- Keep function for backward compatibility
 function GetLines(input, sep)
     if sep == nil then
         sep = "%s"
@@ -86,10 +105,31 @@ function table.contains(table, value)
 	return false
 end
 
+function table.getKey(table, value)
+	for k, v in pairs(table) do
+		if v == value then
+			return k
+		end
+	end
+	return nil
+end
+
 function table.sum(table)
 	local sum = 0
 	for _, v in ipairs(table) do
 		sum = sum + v
 	end
 	return sum
+end
+
+function string.escape(str, startIndex)
+    local pattern = "[%%%.%(%)%+%-%*%?%[%]%^%$]"
+    local index = startIndex or 1
+    local s = str:match(pattern, index)
+    if s then
+        local position = str:find(pattern, index)
+        local modifiedString = str:sub(1, position - 1) .. "%" .. str:sub(position, #str)
+        return string.escape(modifiedString, position + 2)
+    end
+    return str
 end
