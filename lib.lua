@@ -3,8 +3,10 @@ function GetInput(demo)
     local path = info.source:match("Advent of Code\\(.*)part")
     path = demo == "demo" and (path .. "demo-input.txt") or (path .. "input.txt")
 
-    local file = io.open(path, "r")
-    if not file then return nil end
+    local file, errorMsg = io.open(path, "r")
+    if not file then
+        error("\n-- ERROR: Unable to open file - " .. errorMsg)
+    end
 
 	local lines = {}
     for line in file:lines() do
@@ -103,6 +105,16 @@ function table.contains(table, value)
 		end
 	end
 	return false
+end
+
+function table.occurrences(table, value)
+    local occurences = 0
+	for _, v in pairs(table) do
+		if v == value then
+			occurences = occurences + 1
+		end
+	end
+	return occurences
 end
 
 function table.getKey(table, value)
