@@ -1,3 +1,4 @@
+-- Bugged, runs slow sometimes
 require("lib")
 
 local fileContent = ReadFile()
