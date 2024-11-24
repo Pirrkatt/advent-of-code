@@ -44,44 +44,71 @@ function GetLines(input, sep)
     return t
 end
 
-function DumpLevel(input, level)
-	local indent = ''
+function Pdump(t, compact, hideKeys, hideQuotes)
+    hideKeys = hideKeys or false
+    hideQuotes = hideQuotes or false
+    local indent = 4
+    local toPrint = {}
 
-	for i = 1, level do
-		indent = indent .. '    '
-	end
+    if compact then
+        local function formatCompact(t)
+            local result = "{"
 
-	if type(input) == 'table' then
-		local str = '{ \n'
-		local lines = {}
+            -- Loop through the table
+            for k, v in pairs(t) do
+                -- Handle the case for tables inside tables (nested tables)
+                if type(v) == "table" then
+                    result = result .. string.rep(" ", indent) .. "[" .. tostring(k) .. "] = {" .. formatCompact(v) .. ",\n"
+                else
+                    -- Add simple key-value pairs
+                    if not hideKeys then
+                        result = result .. "[" .. tostring(k) .. "] = "
+                    end
+                    if not hideQuotes then
+                        result = result .. '"'
+                    end
+    
+                    result = result .. tostring(v)
 
-		for k, v in pairs(input) do
-			if type(k) ~= 'number' then
-				k = '"' .. k .. '"'
-			end
+                    if not hideQuotes then
+                        result = result .. '"'
+                    end
+                    if k ~= #t then
+                        result = result .. ', '
+                    end
+                end
+            end
 
-			if type(v) == 'string' then
-				v = '"' .. v .. '"'
-			end
+            return result .. "}"
+        end
 
-			table.insert(lines, indent .. '    [' .. k .. '] = ' .. DumpLevel(v, level + 1))
-		end
-		return str .. table.concat(lines, ',\n') .. '\n' .. indent .. '}'
-	end
+        -- Print the table in compact format
+        table.insert(toPrint, formatCompact(t))
+    end
 
-	return tostring(input)
-end
+    if not compact then
+        local function formatExpanded(t, level)
+            local result = "{\n"
 
--- Return a string representation of input for debugging purposes
-function Dump(input)
-	return DumpLevel(input, 0)
-end
+            local currentIndent = string.rep(" ", level * indent)
 
--- Call the dump function and print it to console
-function Pdump(input)
-	local dump_str = Dump(input)
-	print(dump_str)
-	return dump_str
+            for k, v in pairs(t) do
+                if type(v) == "table" then
+                    result = result .. currentIndent .. "[" .. tostring(k) .. "] = {\n" .. formatExpanded(v, level + 1) .. "},\n"
+                else
+                    result = result .. currentIndent .. "[" .. tostring(k) .. "] = " .. '"' .. tostring(v) .. '",\n'
+                end
+            end
+
+            return result .. "}"
+        end
+
+        table.insert(toPrint, formatExpanded(t, 1))
+    end
+
+    local result = table.concat(toPrint, "\n")
+    print(result)
+    return result
 end
 
 function DeepSearch(table, targetValue)
@@ -98,23 +125,46 @@ function DeepSearch(table, targetValue)
     return nil
 end
 
+local function tablesEqual(tbl1, tbl2)
+    if type(tbl1) ~= "table" or type(tbl2) ~= "table" then
+        return false
+    end
+    if #tbl1 ~= #tbl2 then
+        return false
+    end
+    for i = 1, #tbl1 do
+        if tbl1[i] ~= tbl2[i] then
+            return false
+        end
+    end
+    return true
+end
+
 function table.contains(table, value)
 	for _, v in pairs(table) do
-		if v == value then
+		if type(v) == "table" and type(value) == "table" then
+			if tablesEqual(v, value) then
+				return true
+			end
+		elseif v == value then
 			return true
 		end
 	end
 	return false
 end
 
-function table.occurrences(table, value)
-    local occurences = 0
-	for _, v in pairs(table) do
-		if v == value then
-			occurences = occurences + 1
-		end
-	end
-	return occurences
+function table.occurrences(t, value, recursive)
+    local occurrences = 0
+    for _, v in pairs(t) do
+        if type(v) == 'table' and recursive then
+            occurrences = occurrences + table.occurrences(v, value, recursive)
+        else
+            if v == value then
+                occurrences = occurrences + 1
+            end
+        end
+    end
+    return occurrences
 end
 
 function table.getKey(table, value)
@@ -126,12 +176,37 @@ function table.getKey(table, value)
 	return nil
 end
 
-function table.sum(table)
-	local sum = 0
-	for _, v in ipairs(table) do
-		sum = sum + v
-	end
-	return sum
+function table.sum(t, recursive)
+    local sum = 0
+    for _, v in ipairs(t) do
+        if type(v) == 'table' and recursive then
+            sum = sum + table.sum(v, true) -- Recursively sum inner tables
+        else
+            sum = sum + v -- Add the value if it's not a table
+        end
+    end
+    return sum
+end
+
+function table.copy(orig, copies)
+    copies = copies or {}
+    local orig_type = type(orig)
+    local copy
+    if orig_type == 'table' then
+        if copies[orig] then
+            copy = copies[orig]
+        else
+            copy = {}
+            copies[orig] = copy
+            for orig_key, orig_value in next, orig, nil do
+                copy[table.copy(orig_key, copies)] = table.copy(orig_value, copies)
+            end
+            setmetatable(copy, table.copy(getmetatable(orig), copies))
+        end
+    else -- number, string, boolean, etc
+        copy = orig
+    end
+    return copy
 end
 
 function string.escape(str, startIndex)
